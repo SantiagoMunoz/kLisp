@@ -9,19 +9,21 @@
 int main(int argc, char **argv)
 {
 		mpc_parser_t* Number = mpc_new("number");
-		mpc_parser_t* Operator = mpc_new("operator");
+		mpc_parser_t* Operator = mpc_new("symbol");
 		mpc_parser_t* Expression = mpc_new("expression");
+		mpc_parser_t* sExpression = mpc_new("sexpression");
 		mpc_parser_t* kLisp = mpc_new("klisp");
 
 		//Reverse polac notation
 		mpca_lang(MPCA_LANG_DEFAULT,
 						"																			\
-						number :/-?[0-9]+/;															\
-						operator :'+' | '-' | '/' | '*' | '^' | \"mini\" | \"max\" | '\%';			\
-						expression :<number> | '(' <expression>+ <operator> ')';					\
-						klisp :/^/<expression>+ <operator>/$/;										\
+						number: /-?[0-9]+/;															\
+						symbol: '+' | '-' | '/' | '*';												\
+						sexpression: '(' <expression>* ')';											\
+						expression : <number> | <symbol> | <sexpression>;							\
+						klisp :/^/ <expression>* /$/;												\
 						",
-						Number, Operator, Expression, kLisp);
+						Number, Operator, sExpression, Expression, kLisp);
 
 		printf("kLisp version 0.0.0.0.1\n");
 		printf("Press Ctrl+c to Exit\n\n");
@@ -31,8 +33,9 @@ int main(int argc, char **argv)
 				add_history(input);
 				mpc_result_t r;
 				if(mpc_parse("<stdin>", input, kLisp, &r)){
-						lValue result = eval(r.output);
+						lValue* result = lValue_read(r.output);
 						lValue_printf(result);
+						lValue_free(result);
 						mpc_ast_delete(r.output);
 				}else{
 						mpc_err_print(r.error);
@@ -41,6 +44,6 @@ int main(int argc, char **argv)
 				free(input);
 		}
 
-		mpc_cleanup(4, Number, Operator, Expression, kLisp);
+		mpc_cleanup(5, Number, Operator, sExpression, Expression, kLisp);
 		return 0;
 }

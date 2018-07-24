@@ -11,24 +11,34 @@
 		ACTION(LVALUE_ERR_BAD_OPERATION)		\
 		ACTION(LVALUE_ERR_BAD_NUMBER)			\
 
-typedef enum {LVALUE_NUM, LVALUE_ERROR} lvalue_type_t;
+typedef enum {LVALUE_NUM, LVALUE_ERROR, LVALUE_SYMBOL, LVALUE_SEXPRESSION} lvalue_type_t;
 typedef enum {FOREACH_ERROR(make_enum)} lvalue_error_t;
 
-typedef struct{
+typedef struct lValue{
 	lvalue_type_t type;
 	long value;
+	char *symbol;
 	char* error_str;
+	//for symbolic expressions
+	int count;
+	struct lValue **cells;
 }lValue;
 
 //Constructors
-lValue lValue_num(long num);
-lValue lValue_err(char* error_str);
-
+lValue* lValue_num(long num);
+lValue* lValue_err(char* error_str);
+lValue* lValue_symbol(char* symbol);
+lValue* lValue_sexpression();
+//Destructor
+void lValue_free(lValue* v);
 //Print
-void lValue_printf(lValue in);
+void lValue_printf(lValue* in);
+//attach lvalue to another lvalue
+lValue* lValue_add(lValue* parent, lValue* child);
+//Read
+lValue* lValue_read(mpc_ast_t *input);
 
-//Operate and eval
-lValue operate(lValue a, char *op, lValue b);
-lValue eval(mpc_ast_t *t);
+//Eval s expression
+lValue* lValue_eval(lValue *v);
 
 #endif
