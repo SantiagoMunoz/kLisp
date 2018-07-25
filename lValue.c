@@ -132,10 +132,59 @@ lValue* lValue_read(mpc_ast_t* input)
 	return v;
 }
 
+lValue* lValue_pop(lValue *v, int i)
+{
+    if(i > (v->count + 1))
+        return NULL;
+    lValue* x = v->cells[i];
+    memmove(&v->cells[i], &v->cells[i+1], sizeof(lValue*)*(v->count - 1 - i));
+    v->count --;
+    v->cells = realloc(v->cells, sizeof(lValue*)*v->count);
+    return x;
+}
+
+lValue* lValue_take(lValue *v, int i)
+{
+    lValue* x = lValue_pop(v, i);
+    lValue_free(v);
+    return x;
+}
+
+lValue* builtin_op(lValue* v, char* op)
+{
+    //TODO Implement this!
+    return NULL;
+}
+
 lValue* eval_sexpression(lValue *v)
 {
-	//TODO Implement this
-	return v;
+    int i;
+    //Manage the empty expression
+    if(v->count == 0)
+        return v;
+    //First, evaluate all children
+    for(i=0;i< v->count;i++){
+        v->cells[i] = lValue_eval(v->cells[i]);
+    }
+    //Have there been any errors -> remove them!
+    for(i=0;i< v->count;i++){
+        if(v->cells[i]->type == LVALUE_ERROR)
+            return lValue_take(v,i);
+    }
+    //Manage single expression
+    if(v->count == 1)
+       return lValue_take(v,0); 
+    //Rest of cases -> Process as normal 
+    lValue *f = lValue_pop(v,v->count - 1);
+    if(f->type != LVALUE_SYMBOL){
+        lValue_free(f);
+        lValue_free(v);
+        return lValue_err("S-Expression does not end with a symbol!");
+    }
+    
+    lValue *result = builtin_op(v,f->symbol);
+    lValue_free(f);
+	return result;
 }
 
 lValue* lValue_eval(lValue *v)
