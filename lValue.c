@@ -207,6 +207,29 @@ lValue* builtin_list(lValue* v)
     return v;
 }
 
+lValue* lValue_join(lValue* src, lValue* extra)
+{
+    int i;
+    while(extra->count> 0)
+        src = lValue_add(src,lValue_pop(extra, 0));
+    return src;
+}
+
+lValue* builtin_join(lValue* v)
+{
+    L_ASSERT(v,v->count>1,"Too few arguments");
+    int i;
+    for(i=0;i<v->count;i++){
+        L_ASSERT(v,v->cells[i]->type==LVALUE_QEXPRESSION,"Wrong operand type");
+    }
+    lValue* a = lValue_qexpression();
+    for(i=0;i<v->count;i++){
+        a= lValue_join(a, v->cells[i]);
+    }
+    lValue_free(v);
+    return a;
+}
+
 lValue* builtin_op(lValue* v, char* op)
 {
     //Check for functions
@@ -218,6 +241,8 @@ lValue* builtin_op(lValue* v, char* op)
         return builtin_list(v);
     if(strcmp(op,"eval")==0)
         return builtin_eval(v);
+    if(strcmp(op,"join")==0)
+        return builtin_join(v);
     if(strstr("+-/*",op) == NULL){
         lValue_free(v);
         return lValue_err("Unknown function");

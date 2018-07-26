@@ -17,13 +17,13 @@ int main(int argc, char **argv)
 
 		//Reverse polac notation
 		mpca_lang(MPCA_LANG_DEFAULT,
-						"																			\
-						number: /-?[0-9]+/;															\
-						symbol: '+' | '-' | '/' | '*' | \"head\" | \"tail\" | \"list\" | \"eval\";	\
-						sexpression: '(' <expression>* ')';											\
-						qexpression: '{' <expression>* '}';											\
-						expression : <number> | <symbol> | <sexpression> | <qexpression>;			\
-						klisp :/^/ <expression>* /$/;												\
+						"																			            \
+						number: /-?[0-9]+/;															            \
+						symbol: '+' | '-' | '/' | '*' | \"head\" | \"tail\" | \"list\" | \"eval\" | \"join\";	\
+						sexpression: '(' <expression>* ')';											            \
+						qexpression: '{' <expression>* '}';											            \
+						expression : <number> | <symbol> | <sexpression> | <qexpression>;			            \
+						klisp :/^/ <expression>* /$/;												            \
 						",
 						Number, Symbol, sExpression, qExpression, Expression, kLisp);
 
