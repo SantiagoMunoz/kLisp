@@ -178,7 +178,9 @@ lValue* builtin_head(lValue *v)
     L_ASSERT(v,v->cells[0]->type==LVALUE_QEXPRESSION,"Wrong operand type");
     L_ASSERT(v,v->cells[0]->count!=0,"Cannot apply 'head' to an empy list");
     lValue* a = lValue_take(v, 0);
-    return lValue_take(a, 0);
+    lValue* ret = lValue_qexpression();
+    ret = lValue_add(ret,lValue_take(a, 0));
+    return ret;
 }
 
 lValue* builtin_tail(lValue* v)
