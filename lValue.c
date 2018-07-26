@@ -94,7 +94,9 @@ void lValue_printf(lValue* in)
 lValue* lValue_add(lValue* parent, lValue* child)
 {
 	if(parent->type != LVALUE_SEXPRESSION)
-			return NULL;
+		return parent;
+    if(child == NULL)
+        return parent;
 	parent->count++;
 	parent->cells = realloc(parent->cells, parent->count * sizeof(lValue*));
 	parent->cells[parent->count - 1] = child;
@@ -198,7 +200,7 @@ lValue* eval_sexpression(lValue *v)
     for(i=0;i< v->count;i++){
         v->cells[i] = lValue_eval(v->cells[i]);
     }
-    //Have there been any errors -> remove them!
+    //Have there been any errors?
     for(i=0;i< v->count;i++){
         if(v->cells[i]->type == LVALUE_ERROR)
             return lValue_take(v,i);

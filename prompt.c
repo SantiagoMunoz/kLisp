@@ -9,7 +9,7 @@
 int main(int argc, char **argv)
 {
 		mpc_parser_t* Number = mpc_new("number");
-		mpc_parser_t* Operator = mpc_new("symbol");
+		mpc_parser_t* Symbol = mpc_new("symbol");
 		mpc_parser_t* Expression = mpc_new("expression");
 		mpc_parser_t* sExpression = mpc_new("sexpression");
 		mpc_parser_t* kLisp = mpc_new("klisp");
@@ -23,7 +23,7 @@ int main(int argc, char **argv)
 						expression : <number> | <symbol> | <sexpression>;							\
 						klisp :/^/ <expression>* /$/;												\
 						",
-						Number, Operator, sExpression, Expression, kLisp);
+						Number, Symbol, sExpression, Expression, kLisp);
 
 		printf("kLisp version 0.0.0.0.1\n");
 		printf("Press Ctrl+c to Exit\n\n");
@@ -33,9 +33,11 @@ int main(int argc, char **argv)
 				add_history(input);
 				mpc_result_t r;
 				if(mpc_parse("<stdin>", input, kLisp, &r)){
-						lValue* result = lValue_read(r.output);
-						lValue_printf(result);
-						lValue_free(result);
+						lValue* v= lValue_read(r.output);
+                        v = lValue_eval(v);
+						lValue_printf(v);
+                        putchar('\n');
+						lValue_free(v);
 						mpc_ast_delete(r.output);
 				}else{
 						mpc_err_print(r.error);
@@ -44,6 +46,6 @@ int main(int argc, char **argv)
 				free(input);
 		}
 
-		mpc_cleanup(5, Number, Operator, sExpression, Expression, kLisp);
+		mpc_cleanup(5, Number, Symbol, sExpression, Expression, kLisp);
 		return 0;
 }
