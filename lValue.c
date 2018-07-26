@@ -152,8 +152,40 @@ lValue* lValue_take(lValue *v, int i)
 
 lValue* builtin_op(lValue* v, char* op)
 {
-    //TODO Implement this!
-    return NULL;
+    //Make sure all arguments are numbers
+    int i;
+    for(i=0;i<v->count;i++){
+        if(v->cells[i]->type != LVALUE_NUM){
+            lValue_free(v);
+            return lValue_err("Cannot operate on non-numbers");
+        }
+    }
+
+    lValue* x = lValue_pop(v, 0);
+    if( (v->count == 0) & (strcmp(op,"-")==0) )
+        x->value = -x->value;
+
+    while(v->count > 0){
+        lValue* y = lValue_pop(v, 0);
+        if(strcmp(op,"+")==0)
+            x->value += y->value;
+        if(strcmp(op,"-")==0)
+            x->value -= y->value;
+        if(strcmp(op,"/")==0){
+            if(y->value == 0){
+                lValue_free(x);
+                lValue_free(y);
+                x = lValue_err("Division by zero");
+                break;
+            }
+            x->value /= y->value;
+        }
+        if(strcmp(op,"*")==0)
+            x->value *= y->value;
+        lValue_free(y);
+    }
+    lValue_free(v);
+    return x;
 }
 
 lValue* eval_sexpression(lValue *v)
