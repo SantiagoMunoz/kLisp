@@ -12,18 +12,20 @@ int main(int argc, char **argv)
 		mpc_parser_t* Symbol = mpc_new("symbol");
 		mpc_parser_t* Expression = mpc_new("expression");
 		mpc_parser_t* sExpression = mpc_new("sexpression");
+        mpc_parser_t* qExpression = mpc_new("qexpression");
 		mpc_parser_t* kLisp = mpc_new("klisp");
 
 		//Reverse polac notation
 		mpca_lang(MPCA_LANG_DEFAULT,
 						"																			\
 						number: /-?[0-9]+/;															\
-						symbol: '+' | '-' | '/' | '*';												\
+						symbol: '+' | '-' | '/' | '*' | \"head\" | \"tail\" | \"list\" | \"eval\";	\
 						sexpression: '(' <expression>* ')';											\
-						expression : <number> | <symbol> | <sexpression>;							\
+						qexpression: '{' <expression>* '}';											\
+						expression : <number> | <symbol> | <sexpression> | <qexpression>;			\
 						klisp :/^/ <expression>* /$/;												\
 						",
-						Number, Symbol, sExpression, Expression, kLisp);
+						Number, Symbol, sExpression, qExpression, Expression, kLisp);
 
 		printf("kLisp version 0.0.0.0.1\n");
 		printf("Press Ctrl+c to Exit\n\n");
@@ -46,6 +48,6 @@ int main(int argc, char **argv)
 				free(input);
 		}
 
-		mpc_cleanup(5, Number, Symbol, sExpression, Expression, kLisp);
+		mpc_cleanup(6, Number, Symbol, sExpression, qExpression, Expression, kLisp);
 		return 0;
 }

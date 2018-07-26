@@ -11,7 +11,7 @@
 		ACTION(LVALUE_ERR_BAD_OPERATION)		\
 		ACTION(LVALUE_ERR_BAD_NUMBER)			\
 
-typedef enum {LVALUE_NUM, LVALUE_ERROR, LVALUE_SYMBOL, LVALUE_SEXPRESSION} lvalue_type_t;
+typedef enum {LVALUE_NUM, LVALUE_ERROR, LVALUE_SYMBOL, LVALUE_SEXPRESSION, LVALUE_QEXPRESSION} lvalue_type_t;
 typedef enum {FOREACH_ERROR(make_enum)} lvalue_error_t;
 
 typedef struct lValue{
@@ -29,6 +29,8 @@ lValue* lValue_num(long num);
 lValue* lValue_err(char* error_str);
 lValue* lValue_symbol(char* symbol);
 lValue* lValue_sexpression();
+lValue* lValue_qexpression();
+
 //Destructor
 void lValue_free(lValue* v);
 //Print

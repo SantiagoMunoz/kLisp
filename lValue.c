@@ -1,6 +1,8 @@
 #define _GNU_SOURCE
 #include "lValue.h"
 #include "string.h"
+
+#define L_ASSERT(param,cond,error) if(!cond){lValue_free(param); return lValue_err(error);}
 char* error_strings[] = {FOREACH_ERROR(make_str)};
 
 lValue* lValue_num(long num)
@@ -36,6 +38,15 @@ lValue* lValue_sexpression()
 	return ret;
 }
 
+lValue* lValue_qexpression()
+{
+	lValue* ret = (lValue*)malloc(sizeof(lValue));
+	ret->type = LVALUE_QEXPRESSION;
+	ret->count = 0;
+	ret->cells = NULL;
+	return ret;
+}
+
 void lValue_free(lValue* v)
 {
 	switch(v->type){
@@ -47,7 +58,9 @@ void lValue_free(lValue* v)
 		case LVALUE_SYMBOL:
 			free(v->symbol);
 			break;
-		case LVALUE_SEXPRESSION:
+        case LVALUE_SEXPRESSION:
+            //Fallthrough
+        case LVALUE_QEXPRESSION:
 			while(v->count > 0){
 				lValue_free(v->cells[v->count-1]);
 				v->count--;
@@ -88,12 +101,15 @@ void lValue_printf(lValue* in)
 		case LVALUE_SEXPRESSION:
 			lValue_expression_printf(in, '(', ')');
 			break;
+        case LVALUE_QEXPRESSION:
+            lValue_expression_printf(in, '{', '}');
+            break;
 	}
 }
 
 lValue* lValue_add(lValue* parent, lValue* child)
 {
-	if(parent->type != LVALUE_SEXPRESSION)
+	if(!(parent->type == LVALUE_SEXPRESSION) & !(parent->type == LVALUE_QEXPRESSION))
 		return parent;
     if(child == NULL)
         return parent;
@@ -109,7 +125,7 @@ lValue* read_num(mpc_ast_t* input)
 	long n = strtol(input->contents, NULL, 10);
 	if(errno != ERANGE)
 		return lValue_num(n);
-		return lValue_err("Not a valid number");
+	return lValue_err("Not a valid number");
 }
 
 lValue* lValue_read(mpc_ast_t* input)
@@ -122,12 +138,16 @@ lValue* lValue_read(mpc_ast_t* input)
 	lValue* v = NULL;
 	if((strcmp(input->tag,">")==0) | (strstr(input->tag,"sexpr")!= NULL))
 		v = lValue_sexpression();
+    else if(strstr(input->tag,"qexpr")!= NULL)
+        v = lValue_qexpression();
 	else
 		return NULL;
 	int i;
 	for(i=0;i< input->children_num;i++){
 		if( strcmp(input->children[i]->contents, "(") == 0)	continue;
 		if( strcmp(input->children[i]->contents, ")") == 0)	continue;
+		if( strcmp(input->children[i]->contents, "{") == 0)	continue;
+		if( strcmp(input->children[i]->contents, "}") == 0)	continue;
 		if( strcmp(input->children[i]->contents, "regex") == 0)	continue;
 		v = lValue_add(v, lValue_read(input->children[i]));
 	}
@@ -152,8 +172,56 @@ lValue* lValue_take(lValue *v, int i)
     return x;
 }
 
+lValue* builtin_head(lValue *v)
+{
+    L_ASSERT(v,v->count==1,"Too many arguments");
+    L_ASSERT(v,v->cells[0]->type==LVALUE_QEXPRESSION,"Wrong operand type");
+    L_ASSERT(v,v->cells[0]->count!=0,"Cannot apply 'head' to an empy list");
+    lValue* a = lValue_take(v, 0);
+    return lValue_take(a, 0);
+}
+
+lValue* builtin_tail(lValue* v)
+{
+    L_ASSERT(v,v->count==1,"Too many arguments");
+    L_ASSERT(v,v->cells[0]->type==LVALUE_QEXPRESSION,"Wrong operand type");
+    L_ASSERT(v,v->cells[0]->count!=0,"Cannot apply 'tail' to an empy list");
+    lValue* a = lValue_take(v, 0);
+    lValue *tmp = lValue_pop(a, 0);
+    lValue_free(tmp);
+    return a;
+}
+
+lValue* builtin_eval(lValue* v)
+{
+    L_ASSERT(v,v->count==1,"Too many arguments");
+    L_ASSERT(v,v->cells[0]->type==LVALUE_QEXPRESSION,"Wrong operand type");
+    lValue* a = lValue_take(v, 0);
+    a->type = LVALUE_SEXPRESSION;
+    return lValue_eval(a);
+}
+
+lValue* builtin_list(lValue* v)
+{
+    v->type = LVALUE_QEXPRESSION;
+    return v;
+}
+
 lValue* builtin_op(lValue* v, char* op)
 {
+    //Check for functions
+    if(strcmp(op,"head")==0)
+        return builtin_head(v);
+    if(strcmp(op,"tail")==0)
+        return builtin_tail(v);
+    if(strcmp(op,"list")==0)
+        return builtin_list(v);
+    if(strcmp(op,"eval")==0)
+        return builtin_eval(v);
+    if(strstr("+-/*",op) == NULL){
+        lValue_free(v);
+        return lValue_err("Unknown function");
+    }
     //Make sure all arguments are numbers
     int i;
     for(i=0;i<v->count;i++){
