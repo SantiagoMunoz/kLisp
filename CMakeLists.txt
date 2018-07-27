@@ -1,0 +1,5 @@
+cmake_minimum_required (VERSION 2.6)
+project("kLisp Interpreter")
+set(KLISP_SOURCES lValue.c lEnv.c mpc/mpc.c prompt.c lBuiltins.c)
+add_executable(kLisp ${KLISP_SOURCES})
+target_link_libraries(kLisp readline)
