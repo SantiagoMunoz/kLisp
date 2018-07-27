@@ -5,6 +5,8 @@
 #include <string.h>
 #include "mpc/mpc.h"
 #include "lValue.h"
+#include "lEnv.h"
+#include "lBuiltins.h"
 
 int main(int argc, char **argv)
 {
@@ -17,26 +19,27 @@ int main(int argc, char **argv)
 
 		//Reverse polac notation
 		mpca_lang(MPCA_LANG_DEFAULT,
-						"																			            \
-						number: /-?[0-9]+/;															            \
-						symbol: '+' | '-' | '/' | '*' | \"head\" | \"tail\" | \"list\" | \"eval\" | \"join\";	\
-						sexpression: '(' <expression>* ')';											            \
-						qexpression: '{' <expression>* '}';											            \
-						expression : <number> | <symbol> | <sexpression> | <qexpression>;			            \
-						klisp :/^/ <expression>* /$/;												            \
+						"															        \
+						number: /-?[0-9]+/;													\
+						symbol: /[a-zA-Z0-9_+\\-*\\/\\\\=<>!&]+/;                       	\
+						sexpression: '(' <expression>* ')';									\
+						qexpression: '{' <expression>* '}';									\
+						expression : <number> | <symbol> | <sexpression> | <qexpression>;	\
+						klisp :/^/ <expression>* /$/;										\
 						",
 						Number, Symbol, sExpression, qExpression, Expression, kLisp);
 
 		printf("kLisp version 0.0.0.0.1\n");
 		printf("Press Ctrl+c to Exit\n\n");
-
+        lEnv* e= lEnv_new();
+        lEnv_add_builtInFunctions(e);
 		while(1){
 				char *input = readline("kLisp> ");
 				add_history(input);
 				mpc_result_t r;
 				if(mpc_parse("<stdin>", input, kLisp, &r)){
 						lValue* v= lValue_read(r.output);
-                        v = lValue_eval(v);
+                        v = lValue_eval(e,v);
 						lValue_printf(v);
                         putchar('\n');
 						lValue_free(v);
@@ -47,7 +50,7 @@ int main(int argc, char **argv)
 				}
 				free(input);
 		}
-
+        lEnv_free(e);
 		mpc_cleanup(6, Number, Symbol, sExpression, qExpression, Expression, kLisp);
 		return 0;
 }

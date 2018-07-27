@@ -1,8 +1,8 @@
 #define _GNU_SOURCE
 #include "lValue.h"
-#include "string.h"
+#include "lEnv.h"
+#include <string.h>
 
-#define L_ASSERT(param,cond,error) if(!cond){lValue_free(param); return lValue_err(error);}
 char* error_strings[] = {FOREACH_ERROR(make_str)};
 
 lValue* lValue_num(long num)
@@ -13,7 +13,7 @@ lValue* lValue_num(long num)
 	return ret;
 }
 
-lValue* lValue_err(char *error_str)
+lValue* lValue_err(char* error_str)
 {
 	lValue* ret = (lValue*)malloc(sizeof(lValue));
 	ret->type = LVALUE_ERROR;
@@ -47,10 +47,51 @@ lValue* lValue_qexpression()
 	return ret;
 }
 
+lValue* lValue_function(lFunc f)
+{
+    lValue* v = (lValue*)malloc(sizeof(lValue));
+    v->type = LVALUE_FUNCTION;
+    v->fun = f;
+    return v;
+}
+
+lValue* lValue_copy(lValue* v)
+{
+    if(!v)
+        return NULL;
+    lValue* new = (lValue*)malloc(sizeof(lValue)); 
+    new->type = v->type;
+    switch(v->type){
+        case LVALUE_NUM:
+            new->value = v->value;
+            break;
+        case LVALUE_ERROR:
+            asprintf(&new->error_str,"%s",v->error_str);
+            break;
+        case LVALUE_SYMBOL:
+            asprintf(&new->symbol,"%s",v->symbol);            
+            break;
+        case LVALUE_SEXPRESSION:
+            //Fallthrough
+        case LVALUE_QEXPRESSION:
+            new->count = v->count;
+            new->cells = (lValue**)malloc(sizeof(lValue*)*new->count);
+            int i;
+            for(i=0;i<new->count;i++)
+                new->cells[i] = lValue_copy(v->cells[i]);
+            break;
+        case LVALUE_FUNCTION:
+            new->fun= v->fun;
+    }
+    return new;
+}
+
 void lValue_free(lValue* v)
 {
 	switch(v->type){
 		case LVALUE_NUM:
+            //Fallthrough
+        case LVALUE_FUNCTION:
 			break;
 		case LVALUE_ERROR:
 			free(v->error_str);
@@ -87,6 +128,9 @@ void lValue_expression_printf(lValue *exp, char start, char close)
 void lValue_printf(lValue* in)
 {
 	switch(in->type){
+        case LVALUE_FUNCTION:
+            printf("<function>");
+            break;
 		case LVALUE_NUM:
 			printf("%li", in->value);
 			break;
@@ -172,43 +216,6 @@ lValue* lValue_take(lValue *v, int i)
     return x;
 }
 
-lValue* builtin_head(lValue *v)
-{
-    L_ASSERT(v,v->count==1,"Too many arguments");
-    L_ASSERT(v,v->cells[0]->type==LVALUE_QEXPRESSION,"Wrong operand type");
-    L_ASSERT(v,v->cells[0]->count!=0,"Cannot apply 'head' to an empy list");
-    lValue* a = lValue_take(v, 0);
-    lValue* ret = lValue_qexpression();
-    ret = lValue_add(ret,lValue_take(a, 0));
-    return ret;
-}
-
-lValue* builtin_tail(lValue* v)
-{
-    L_ASSERT(v,v->count==1,"Too many arguments");
-    L_ASSERT(v,v->cells[0]->type==LVALUE_QEXPRESSION,"Wrong operand type");
-    L_ASSERT(v,v->cells[0]->count!=0,"Cannot apply 'tail' to an empy list");
-    lValue* a = lValue_take(v, 0);
-    lValue *tmp = lValue_pop(a, 0);
-    lValue_free(tmp);
-    return a;
-}
-
-lValue* builtin_eval(lValue* v)
-{
-    L_ASSERT(v,v->count==1,"Too many arguments");
-    L_ASSERT(v,v->cells[0]->type==LVALUE_QEXPRESSION,"Wrong operand type");
-    lValue* a = lValue_take(v, 0);
-    a->type = LVALUE_SEXPRESSION;
-    return lValue_eval(a);
-}
-
-lValue* builtin_list(lValue* v)
-{
-    v->type = LVALUE_QEXPRESSION;
-    return v;
-}
-
 lValue* lValue_join(lValue* src, lValue* extra)
 {
     int i;
@@ -217,75 +224,7 @@ lValue* lValue_join(lValue* src, lValue* extra)
     return src;
 }
 
-lValue* builtin_join(lValue* v)
-{
-    L_ASSERT(v,v->count>1,"Too few arguments");
-    int i;
-    for(i=0;i<v->count;i++){
-        L_ASSERT(v,v->cells[i]->type==LVALUE_QEXPRESSION,"Wrong operand type");
-    }
-    lValue* a = lValue_qexpression();
-    for(i=0;i<v->count;i++){
-        a= lValue_join(a, v->cells[i]);
-    }
-    lValue_free(v);
-    return a;
-}
-
-lValue* builtin_op(lValue* v, char* op)
-{
-    //Check for functions
-    if(strcmp(op,"head")==0)
-        return builtin_head(v);
-    if(strcmp(op,"tail")==0)
-        return builtin_tail(v);
-    if(strcmp(op,"list")==0)
-        return builtin_list(v);
-    if(strcmp(op,"eval")==0)
-        return builtin_eval(v);
-    if(strcmp(op,"join")==0)
-        return builtin_join(v);
-    if(strstr("+-/*",op) == NULL){
-        lValue_free(v);
-        return lValue_err("Unknown function");
-    }
-    //Make sure all arguments are numbers
-    int i;
-    for(i=0;i<v->count;i++){
-        if(v->cells[i]->type != LVALUE_NUM){
-            lValue_free(v);
-            return lValue_err("Cannot operate on non-numbers");
-        }
-    }
-
-    lValue* x = lValue_pop(v, 0);
-    if( (v->count == 0) & (strcmp(op,"-")==0) )
-        x->value = -x->value;
-
-    while(v->count > 0){
-        lValue* y = lValue_pop(v, 0);
-        if(strcmp(op,"+")==0)
-            x->value += y->value;
-        if(strcmp(op,"-")==0)
-            x->value -= y->value;
-        if(strcmp(op,"/")==0){
-            if(y->value == 0){
-                lValue_free(x);
-                lValue_free(y);
-                x = lValue_err("Division by zero");
-                break;
-            }
-            x->value /= y->value;
-        }
-        if(strcmp(op,"*")==0)
-            x->value *= y->value;
-        lValue_free(y);
-    }
-    lValue_free(v);
-    return x;
-}
-
-lValue* eval_sexpression(lValue *v)
+lValue* eval_sexpression(lEnv* e, lValue* v)
 {
     int i;
     //Manage the empty expression
@@ -293,7 +232,7 @@ lValue* eval_sexpression(lValue *v)
         return v;
     //First, evaluate all children
     for(i=0;i< v->count;i++){
-        v->cells[i] = lValue_eval(v->cells[i]);
+        v->cells[i] = lValue_eval(e,v->cells[i]);
     }
     //Have there been any errors?
     for(i=0;i< v->count;i++){
@@ -305,21 +244,22 @@ lValue* eval_sexpression(lValue *v)
        return lValue_take(v,0); 
     //Rest of cases -> Process as normal 
     lValue *f = lValue_pop(v,v->count - 1);
-    if(f->type != LVALUE_SYMBOL){
+    if(f->type != LVALUE_FUNCTION){
         lValue_free(f);
         lValue_free(v);
-        return lValue_err("S-Expression does not end with a symbol!");
+        return lValue_err("S-Expression does not end with a function!");
     }
     
-    lValue *result = builtin_op(v,f->symbol);
+    lValue *result = f->fun(e, v);
     lValue_free(f);
 	return result;
 }
 
-lValue* lValue_eval(lValue *v)
+lValue* lValue_eval(lEnv* e, lValue *v)
 {
-	//If not s expression -> remain the same
+    if(v->type == LVALUE_SYMBOL)
+        return lEnv_get(e, v);
 	if(v->type == LVALUE_SEXPRESSION)
-			return eval_sexpression(v);
+	    return eval_sexpression(e, v);
 	return v;	
 }

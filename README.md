@@ -1,2 +1,2 @@
-# myLisp
-Im making a Lisp
+# kLisp
+This is a RPN Lisp interpreter.
